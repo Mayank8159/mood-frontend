@@ -14,12 +14,14 @@ import { AuthContext } from '../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MoodEntry } from '../types';
 import axiosInstance from '../utils/axiosInstance';
+import { useRouter } from 'expo-router'; // ✅ Added
 
 export default function HomeScreen() {
   const { token, logout } = useContext(AuthContext);
   const [message, setMessage] = useState('');
   const [moods, setMoods] = useState<MoodEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const router = useRouter(); // ✅ Added
 
   const fetchMoods = async () => {
     try {
@@ -54,6 +56,11 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await logout(); // ✅ Clears token
+    router.replace('/login'); // ✅ Redirects to login
   };
 
   return (
@@ -94,7 +101,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity onPress={logout}>
+        <TouchableOpacity onPress={handleLogout}>
           <Text style={styles.logout}>Logout</Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>

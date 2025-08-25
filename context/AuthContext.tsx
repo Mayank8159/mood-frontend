@@ -1,15 +1,14 @@
-// context/AuthContext.tsx
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AuthContextType {
-  authToken: string | null;
+  token: string | null;
   login: (token: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType>({
-  authToken: null,
+  token: null,
   login: async () => {},
   logout: async () => {},
 });
@@ -19,30 +18,30 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadToken = async () => {
-      const token = await AsyncStorage.getItem('authToken');
-      setAuthToken(token);
+      const storedToken = await AsyncStorage.getItem('authToken');
+      setToken(storedToken);
       setLoading(false);
     };
     loadToken();
   }, []);
 
-  const login = async (token: string) => {
-    await AsyncStorage.setItem('authToken', token);
-    setAuthToken(token);
+  const login = async (newToken: string) => {
+    await AsyncStorage.setItem('authToken', newToken);
+    setToken(newToken);
   };
 
   const logout = async () => {
     await AsyncStorage.removeItem('authToken');
-    setAuthToken(null);
+    setToken(null);
   };
 
   return (
-    <AuthContext.Provider value={{ authToken, login, logout }}>
+    <AuthContext.Provider value={{ token, login, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );

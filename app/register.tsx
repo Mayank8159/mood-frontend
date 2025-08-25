@@ -1,4 +1,3 @@
-// app/register.tsx
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -15,6 +14,7 @@ import {
 import { AuthContext } from '../context/AuthContext';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import axiosInstance from '../utils/axiosInstance';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -42,31 +42,23 @@ export default function RegisterScreen() {
     if (!valid) return;
 
     try {
-      const res = await fetch('http://localhost:5000/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const res = await axiosInstance.post('/api/register', {
+        email,
+        password,
       });
 
-      const data = await res.json();
-      if (res.status !== 200) {
-        setErrorMsg(data.error || 'Registration failed');
-        return;
-      }
-
-      const loginRes = await fetch('http://localhost:5000/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const loginData = await loginRes.json();
-      if (loginData.token) {
-        await login(loginData.token);
+      const { token } = res.data;
+      if (token) {
+        await login(token);
         router.replace('/');
+      } else {
+        setErrorMsg('No token received. Try logging in.');
       }
-    } catch (err) {
-      setErrorMsg('Something went wrong. Please try again.');
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      setErrorMsg(
+        err.response?.data?.error || 'Network error. Please check your connection.'
+      );
     }
   };
 

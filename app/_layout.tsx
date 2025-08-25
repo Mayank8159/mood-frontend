@@ -12,11 +12,11 @@ export default function Layout() {
 }
 
 function AuthWrapper() {
-  const { authToken } = useContext(AuthContext);
+  const { token } = useContext(AuthContext);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {authToken ? (
+      {token ? (
         <Stack.Screen name="index" /> // Home
       ) : (
         <Stack.Screen name="login" />

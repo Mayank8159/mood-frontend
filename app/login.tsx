@@ -1,119 +1,110 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
-  TextInput,
   Text,
-  StyleSheet,
+  TextInput,
   TouchableOpacity,
+  ScrollView,
+  StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
-  TouchableWithoutFeedback,
-  Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
-import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MoodEntry } from '../types';
+import axiosInstance from '../utils/axiosInstance';
+import { useRouter } from 'expo-router'; // ✅ Added
 
-export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const { login } = useContext(AuthContext);
+export default function HomeScreen() {
+  const { token, logout } = useContext(AuthContext);
+  const [message, setMessage] = useState('');
+  const [moods, setMoods] = useState<MoodEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter(); // ✅ Added
 
-  const handleLogin = async () => {
-    let valid = true;
-    setEmailError('');
-    setPasswordError('');
-    setErrorMsg('');
-
-    if (!email) {
-      setEmailError('Email is required');
-      valid = false;
-    }
-    if (!password) {
-      setPasswordError('Password is required');
-      valid = false;
-    }
-
-    if (!valid) return;
-
+  const fetchMoods = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const res = await axiosInstance.get('/api/moods', {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      const data = await res.json();
-      if (res.status !== 200 || !data.token) {
-        setErrorMsg(data.error || 'Invalid credentials');
-        return;
-      }
-
-      await login(data.token);
-      router.replace('/');
+      setMoods(res.data);
     } catch (err) {
-      setErrorMsg('Network error. Try again.');
+      console.error('Failed to fetch moods:', err);
     }
+  };
+
+  useEffect(() => {
+    fetchMoods();
+  }, []);
+
+  const handleSend = async () => {
+    if (!message.trim()) return;
+    setLoading(true);
+    try {
+      const res = await axiosInstance.post(
+        '/api/moods',
+        { text: message },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setMoods((prev) => [res.data, ...prev]);
+      setMessage('');
+    } catch (err) {
+      console.error('Failed to send mood:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout(); // ✅ Clears token
+    router.replace('/login'); // ✅ Redirects to login
   };
 
   return (
     <LinearGradient colors={['#6a11cb', '#2575fc']} style={styles.gradient}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.container}
-          keyboardVerticalOffset={60}
-        >
-          <ScrollView contentContainerStyle={styles.scroll}>
-            <Text style={styles.title}>Mood Tracker</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+        keyboardVerticalOffset={60}
+      >
+        <Text style={styles.title}>Welcome Back 👋</Text>
 
-            <TextInput
-              placeholder="Email"
-              placeholderTextColor="#ccc"
-              style={[
-                styles.input,
-                emailError ? { borderColor: '#ff6666' } : {},
-              ]}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (text) setEmailError('');
-              }}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-            {emailError ? <Text style={styles.fieldError}>{emailError}</Text> : null}
+        <ScrollView contentContainerStyle={styles.scroll}>
+          {moods.map((entry, index) => (
+            <View key={index} style={styles.card}>
+              <Text style={styles.mood}>{entry.mood}</Text>
+              <Text style={styles.text}>{entry.text}</Text>
+              <Text style={styles.date}>
+                {new Date(entry.createdAt).toLocaleString()}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
 
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#ccc"
-              style={[
-                styles.input,
-                passwordError ? { borderColor: '#ff6666' } : {},
-              ]}
-              secureTextEntry
-              onChangeText={(text) => {
-                setPassword(text);
-                if (text) setPasswordError('');
-              }}
-            />
-            {passwordError ? <Text style={styles.fieldError}>{passwordError}</Text> : null}
+        <View style={styles.inputContainer}>
+          <TextInput
+            placeholder="How are you feeling today?"
+            placeholderTextColor="#ccc"
+            style={styles.input}
+            value={message}
+            onChangeText={setMessage}
+          />
+          <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+            {loading ? (
+              <ActivityIndicator color="#2575fc" />
+            ) : (
+              <Text style={styles.sendText}>Send</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
-            {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
-
-            <TouchableOpacity style={styles.button} onPress={handleLogin}>
-              <Text style={styles.buttonText}>Login</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => router.push('/register')}>
-              <Text style={styles.link}>Don't have an account? Register</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </TouchableWithoutFeedback>
+        <TouchableOpacity onPress={handleLogout}>
+          <Text style={styles.logout}>Logout</Text>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
@@ -121,54 +112,68 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
   container: { flex: 1, padding: 24 },
-  scroll: { flexGrow: 1, justifyContent: 'center' },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     color: '#fff',
     fontWeight: 'bold',
-    marginBottom: 32,
+    marginBottom: 16,
     textAlign: 'center',
   },
-  input: {
+  scroll: {
+    paddingBottom: 100,
+  },
+  card: {
     backgroundColor: 'rgba(255,255,255,0.1)',
-    color: '#fff',
-    padding: 14,
     borderRadius: 10,
-    marginBottom: 8,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
   },
-  fieldError: {
-    color: '#ffdddd',
-    fontSize: 13,
-    marginBottom: 8,
-    marginLeft: 4,
+  mood: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
   },
-  button: {
-    backgroundColor: '#fff',
-    paddingVertical: 14,
-    borderRadius: 10,
+  text: {
+    color: '#fff',
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  date: {
+    color: '#ccc',
+    fontSize: 12,
+    textAlign: 'right',
+  },
+  inputContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  buttonText: {
+  input: {
+    flex: 1,
+    color: '#fff',
+    padding: 10,
+  },
+  sendButton: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  sendText: {
     color: '#2575fc',
     fontWeight: 'bold',
-    fontSize: 16,
   },
-  link: {
+  logout: {
     color: '#fff',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 16,
     textDecorationLine: 'underline',
-  },
-  error: {
-    color: '#ffdddd',
-    marginBottom: 12,
-    textAlign: 'center',
   },
 });
